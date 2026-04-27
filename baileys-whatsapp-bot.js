@@ -1,75 +1,35 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require("@whiskeysockets/baileys")
-const P = require("pino")
-const qrcode = require("qrcode-terminal")
+sock.ev.on("connection.update", (update) => {
+    const { connection, lastDisconnect, qr } = update
 
-async function startBot() {
-    const { state, saveCreds } = await useMultiFileAuthState("auth")
+    if (qr) {
+        console.log("📱 Scan QR below:")
+        require("qrcode-terminal").generate(qr, { small: true })
+    }
 
-    const sock = makeWASocket({
-        auth: state,
-        logger: P({ level: "silent" }),
-        browser: ["Baileys Bot", "Chrome", "1.0"]
-    })
+    if (connection === "open") {
+        console.log("✅ WhatsApp connected successfully!")
+    }
 
-    sock.ev.on("connection.update", (update) => {
-        const { connection, qr, lastDisconnect } = update
+    if (connection === "close") {
+        const statusCode = lastDisconnect?.error?.output?.statusCode
 
-        if (qr) {
-            console.log("📱 Scan the QR below:")
-            qrcode.generate(qr, { small: true })
+        console.log("❌ Connection closed. Status:", statusCode)
+
+        // ❗ IMPORTANT FIX
+        if (statusCode === 401) {
+            console.log("🚨 Session invalid (logged out). Delete auth/ and rescan QR.")
+            return
         }
 
-        if (connection === "open") {
-            console.log("✅ Bot connected successfully!")
+        if (statusCode === 403) {
+            console.log("🚨 Forbidden. WhatsApp blocked session. Rescan required.")
+            return
         }
 
-        if (connection === "close") {
-            const shouldReconnect =
-                lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+        console.log("🔁 Reconnecting in 5 seconds...")
 
-            console.log("❌ Connection closed. Reconnecting:", shouldReconnect)
-
-            if (shouldReconnect) {
-                startBot()
-            }
-        }
-    })
-
-    sock.ev.on("creds.update", saveCreds)
-
-    sock.ev.on("messages.upsert", async ({ messages }) => {
-        const msg = messages[0]
-        if (!msg.message) return
-
-        const sender = msg.key.remoteJid
-        const text =
-            msg.message.conversation ||
-            msg.message.extendedTextMessage?.text
-
-        console.log("📩 Message:", text)
-
-        if (text === "hi") {
-            await sock.sendMessage(sender, {
-                text: "👋 Hello! I am your WhatsApp bot."
-            })
-        }
-
-        if (text === "!menu") {
-            await sock.sendMessage(sender, {
-                text: `🤖 *BOT MENU*
-                
-1. hi → Greeting
-2. !menu → Show menu
-3. !help → Help info`
-            })
-        }
-
-        if (text === "!help") {
-            await sock.sendMessage(sender, {
-                text: "ℹ️ Send *hi* to test the bot."
-            })
-        }
-    })
-}
-
-startBot()
+        setTimeout(() => {
+            startBot()
+        }, 5000)
+    }
+})
