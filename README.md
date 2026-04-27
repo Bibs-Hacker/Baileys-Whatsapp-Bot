@@ -38,7 +38,7 @@ A powerful **WhatsApp Bot** built using **Baileys** that connects directly to yo
 ## ⚡ Installation
 
 ```bash
-git clone https://github.com/bibs-hacker/whatsapp-baileys-bot.git
+git clone https://github.com/bibs-hacker/baileys-whatsapp-bot.git
 cd whatsapp-baileys-bot
 npm install
 ```
